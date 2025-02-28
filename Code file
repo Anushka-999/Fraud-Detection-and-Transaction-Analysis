@@ -1,0 +1,176 @@
+# Setting Up Your Environment
+!pip install pandas numpy matplotlib seaborn scikit-learn pandas-profiling
+
+# Install a compatible version of pydantic
+!pip install pydantic==1.10.9
+
+# Uninstall pandas-profiling if already installed
+!pip uninstall pandas-profiling -y
+
+# Install ydata-profiling (the updated version of pandas-profiling)
+!pip install ydata-profiling
+
+# Import necessary libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from datetime import datetime
+
+# Machine learning libraries
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc
+
+# Optional: For generating an automated EDA report using the updated package
+from ydata_profiling import ProfileReport
+
+# Data Loading and Cleaning
+# Import necessary libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from datetime import datetime
+
+# Load your dataset from a CSV file (ensure you've uploaded your CSV to Colab)
+df = pd.read_csv('fraud_dataset.csv')
+
+# Preview the first few rows of the dataset
+print(df.head())
+
+# Check data types and overall info
+print(df.info())
+
+# Convert 'transaction_time' to a datetime object for easier manipulation
+df['transaction_time'] = pd.to_datetime(df['transaction_time'])
+
+# Check for missing values in each column
+print("Missing values per column:")
+print(df.isnull().sum())
+
+# If needed, handle missing values (e.g., drop or fill)
+# Example: df = df.dropna()  OR  df.fillna(method='ffill', inplace=True)
+
+# Remove duplicate rows to ensure data quality
+df.drop_duplicates(inplace=True)
+
+# Summary Statistics
+# Get numerical summary statistics (e.g., mean, std, min, max)
+print(df.describe())
+
+# Describe categorical features (shows count, unique values, frequency)
+print(df[['card_type', 'location', 'purchase_category']].describe())
+
+# Distribution of Transaction Amounts
+plt.figure(figsize=(10,6))
+sns.histplot(df['amount'], bins=30, kde=True)
+plt.title('Distribution of Transaction Amounts')
+plt.xlabel('Transaction Amount')
+plt.ylabel('Frequency')
+plt.show()
+
+# Fraudulent vs. Non-Fraudulent Transactions
+plt.figure(figsize=(6,4))
+sns.countplot(x='is_fraudulent', data=df)
+plt.title('Count of Fraudulent vs. Non-Fraudulent Transactions')
+plt.xlabel('Is Fraudulent')
+plt.ylabel('Count')
+plt.show()
+
+# Hourly Transaction volume 
+hourly_transactions = df.resample('H').size()
+print(hourly_transactions.head())
+
+plt.figure(figsize=(12,6))
+hourly_transactions.plot()
+plt.title('Hourly Transaction Volume')
+plt.xlabel('Date/Time')
+plt.ylabel('Number of Transactions')
+plt.show()
+
+# Time-Based Feature Extraction
+# Ensure that the index is a datetime index
+print(df.index.dtype)
+
+# Create new columns using the index (which holds the transaction_time)
+df['hour'] = df.index.hour
+df['day_of_week'] = df.index.dayofweek  # Monday=0, Sunday=6
+df['month'] = df.index.month
+
+# Display the first few rows to confirm
+print(df[['hour', 'day_of_week', 'month']].head()) 
+
+# Initialize a label encoder
+# Initialize a label encoder for converting text labels into numeric form
+from sklearn.preprocessing import LabelEncoder
+
+# Initialize a label encoder for converting text labels into numeric form
+le = LabelEncoder()
+df['card_type_enc'] = le.fit_transform(df['card_type'])
+df['location_enc'] = le.fit_transform(df['location'])
+df['purchase_category_enc'] = le.fit_transform(df['purchase_category'])
+
+# Preparing the Dataset for Modeling
+# Import StandardScaler from sklearn.preprocessing
+from sklearn.preprocessing import StandardScaler
+
+# Define feature set and target variable
+features = ['amount', 'customer_age', 'hour', 'day_of_week', 'month',
+            'card_type_enc', 'location_enc', 'purchase_category_enc']
+target = 'is_fraudulent'
+
+X = df[features]
+y = df[target]
+
+# Scale numerical features (especially when amounts vary widely)
+scaler = StandardScaler()
+X[['amount', 'customer_age']] = scaler.fit_transform(X[['amount', 'customer_age']])
+
+# Building the Fraud Detection Model
+# Splitting the Data, Training a Random Forest Classifier, Classifier Report
+# Import necessary functions from scikit-learn
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42, stratify=y)
+
+# Initialize and train the Random Forest model
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# Make predictions on the test set
+y_pred = model.predict(X_test)
+
+# Display the classification report (precision, recall, f1-score)
+print(classification_report(y_test, y_pred))
+
+# Create a confusion matrix
+# Create a confusion matrix for a more detailed error analysis
+cm = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(6,4))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+            xticklabels=['Non-Fraud', 'Fraud'], yticklabels=['Non-Fraud', 'Fraud'])
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.show()
+
+# Calculate probabilities 
+# Calculate probabilities to plot the ROC curve
+y_probs = model.predict_proba(X_test)[:, 1]
+fpr, tpr, thresholds = roc_curve(y_test, y_probs)
+roc_auc = auc(fpr, tpr)
+
+plt.figure(figsize=(8,6))
+plt.plot(fpr, tpr, label=f'ROC curve (AUC = {roc_auc:.2f})')
+plt.plot([0, 1], [0, 1], 'k--')  # Diagonal line representing random chance
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver Operating Characteristic')
+plt.legend(loc='lower right')
+plt.show()
